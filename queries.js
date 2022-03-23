@@ -13,7 +13,7 @@ const db = mysql.createConnection(
     console.log('Connected to the company_db database.')
 );
 
-
+// just using this to pause after the prints
 const pause = {
     type: 'input',
     name: 'pause',
@@ -31,26 +31,26 @@ async function showTable(entry) {
     switch (entry) {
         case 'department':
             queryRes = await db.promise().query('SELECT id AS ID, name AS Department FROM department')
-                console.table(queryRes[0]);
 
             break;
 
         case 'role':
             queryRes = await db.promise().query('SELECT role.id AS ID, role.title AS Title, department.name AS Department, role.salary AS Salary FROM role INNER JOIN department ON role.dept_id=department.id')
-                console.table(queryRes[0]);
 
             break;
         
         case 'employee':
-            queryRes = await db.promise().query('SELECT employee.first_name AS First, employee.last_name AS Last, role.title, role.salary, department.name AS department FROM employee INNER JOIN role ON employee.role_id=role.id INNER JOIN department ON role.dept_id=department.id')
-                console.table(queryRes[0]);
-            // figure out how to join the manager to this as well
+
+            queryRes = await db.promise().query('SELECT CONCAT(e.first_name, " ", e.last_name) AS Name, role.title AS Title, role.salary AS Salary, CONCAT(m.first_name, " ", m.last_name) AS Manager, department.name AS Department FROM employee e INNER JOIN role ON role_id=role.id INNER JOIN employee m ON e.manager_id=m.id INNER JOIN department ON role.dept_id=department.id')
+    
     
             break;
     }
     
+    console.table(queryRes[0])
     await inquirer.prompt(pause);
 
+    return;
 };
 
 // adds a new entry in the selected table (department, role, employee)
@@ -117,7 +117,7 @@ const employeeAdd = [
 
     let answers;
 
-
+    // runs a tailored inquiry and db.query based on the option selected
     switch (entry) {
 
         case 'department':
@@ -138,12 +138,12 @@ const employeeAdd = [
             await db.promise().query(`INSERT INTO role (title, salary, dept_id) VALUES ('${answers.title}', '${answers.salary}', '${dept_id}')`)
 
             console.log(`${answers.title} was successfully added to the roles.`)
+    
 
             break;
 
         case 'employee':
 
-            console.log('Adding an employee')
             answers = await inquirer.prompt(employeeAdd);
 
             let role_id = await getID('role', answers.role);
@@ -162,7 +162,6 @@ const employeeAdd = [
             else {
                 isMgr = 0;
             }
-
 
             // I had to break these two things out due to the formatting of inserting a null value in to sql
             if (answers.mgr == 'No one'){
@@ -183,6 +182,7 @@ const employeeAdd = [
         
     }
     
+    return;
 
 };
 
@@ -192,7 +192,6 @@ const employeeAdd = [
 // returns the id of a specific entry
 async function getID(table, search) {
 
-    console.log('running getID')
 
     let column;
     let query;
@@ -218,7 +217,6 @@ async function getID(table, search) {
 
     id = await db.promise().query(`SELECT id FROM ${table} WHERE ${column}='${query}'`)
 
-    // console.log(id[0][0].id)
     return id[0][0].id;
 
 }
@@ -227,13 +225,14 @@ async function getID(table, search) {
 // returns an array to be used for the inquierer prompts.
 async function getChoices(table) {
 
-    console.log('running getChoices' + ' ' + table)
 
     let queryRes;
     let choiceArr=[]
 
     switch (table) {
         
+
+        // runs a query based on the option selected
         case 'department':
 
             queryRes = await db.promise().query(`SELECT name FROM department`) 
@@ -241,7 +240,6 @@ async function getChoices(table) {
                 for (let i = 0; i < queryRes[0].length; i++) {
                    choiceArr.push(queryRes[0][i].name) 
                 }
-                console.log(choiceArr);
             break;
 
 
@@ -254,19 +252,17 @@ async function getChoices(table) {
                     choiceArr.push(queryRes[0][i].title) 
 
                 }
-                console.log(choiceArr);
 
             break;
 
 
         case 'employee': 
-            queryRes = await db.promise().query(`SELECT first_name, last_name FROM employee`)
+            queryRes = await db.promise().query(`SELECT first_name AS First_Name, last_name AS Last_Name FROM employee`)
     
                 for (let i = 0; i < queryRes[0].length; i++) {
-                    let fullName = `${queryRes[0][i].first_name} ${queryRes[0][i].last_name}`
+                    let fullName = `${queryRes[0][i].First_Name} ${queryRes[0][i].Last_Name}`
                     choiceArr.push(fullName);
                     }
-                    console.log(choiceArr);
 
             break;
 
@@ -278,7 +274,6 @@ async function getChoices(table) {
                     let fullName = `${queryRes[0][i].first_name} ${queryRes[0][i].last_name}`
                     choiceArr.push(fullName);
                     }
-                    console.log(choiceArr);
 
             break;
     }
@@ -287,32 +282,64 @@ async function getChoices(table) {
 }
 
 
-// trying to figure out a way to have the next prompt not print on top of the console.table
-// async function consoleTable(entry) {
-//     console.table(entry);
-//     return;
-// }
+// used to update the role of a chosen employee
+async function updateRole() {
 
-// used for testing query returns
-async function tester() {
-    
-    let answer = await inquirer.prompt({
-        type: 'confirm',
-        name: 'test',
-        message: 'Do you like me?'
+    let name;
+
+    let searchType = await inquirer.prompt({
+        type: 'list',
+        name: 'choice',
+        message: 'Would you like to enter an employee name or choose from a list?',
+        choices: ['Enter name', 'Choose from list']
     })
 
-    console.log(answer.test)
+    if (searchType.choice === 'Enter name') {
+
+        let searchName = await inquirer.prompt({
+            type: 'input',
+            name: 'name',
+            message: "Please enter the employee's name that you would like to edit:"
+        });
+
+        name = searchName.name;
+
+    } else if (searchType.choice === 'Choose from list') {
+
+        let searchList = await inquirer.prompt({
+            type: 'list',
+            name: 'choice',
+            message: 'Please select an employee from the following list',
+            choices: await getChoices('employee')
+        });
+
+        name = searchList.choice;
+    };
+
+    let nameArr = name.split(' ')
+    let fName = nameArr[0];
+    let lName = nameArr[1];
+
+
+    let newRole = await inquirer.prompt({
+        type: 'list',
+        name: 'role',
+        message: 'Please choose a new role',
+        choices: [...await getChoices('role')]
+    })
+
+
+    let roleID = await getID('role', newRole.role)
+
+    await db.promise().query(`UPDATE employee SET role_id=${roleID} WHERE first_name='${fName}' AND last_name='${lName}'`);
+
+
+    console.log(`${fName} ${lName}'s role was successfully updated`)
+    return;
 
 }
 
 
-async function updateEntry() {
-    console.log('updateEntry')
-}
+module.exports =  { showTable, addData, updateRole };
 
-module.exports =  { showTable, addData, updateEntry, tester };
-
-
-// for (data)Add functions: write something to generate a list based on the depts, roles, mgrs, etc
-// for the employeeAdd: based on the role, query the db to get only the managers that are within the department to reduce the list size.
+// TODO: figure out how to join managers to the table. Currently if an employee doesn't have a manager they don't get logged to the table if I attempt a relationship to manager_id. Currently any employee who doesn't have a manager the id is set to themselves

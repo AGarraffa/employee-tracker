@@ -1,6 +1,6 @@
 const inquirer = require('inquirer');
 // const mysql = require('mysql2');
-const { showTable, addData, updateEntry, tester } = require('./queries');
+const { showTable, addData, updateRole } = require('./queries');
 
 
 // connection to mysql and the company_db database
@@ -26,7 +26,7 @@ const mainMenu = {
             'Add a department', 
             'Add a role', 
             'Add an employee', 
-            'Update an employee',
+            'Update employee role',
             'Quit'
         ]
 };
@@ -72,8 +72,8 @@ async function init() {
             await addData('employee');
             break;
 
-        case 'Update employee data':
-            await updateEntry();
+        case 'Update employee role':
+            await updateRole();
             break;
 
         case 'Quit':
@@ -91,8 +91,6 @@ async function init() {
 // possibly combine show and add and update;
 
 init();
-
-// tester()
 
 
 
