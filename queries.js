@@ -20,6 +20,16 @@ const pause = {
     message: 'Press enter to continue.'
 };
 
+// just a function to pause the app
+async function pauseFunction() {
+    
+    await inquirer.prompt(pause);
+
+    console.log('--------------------------------------------------')
+
+    return;
+}
+
 
 // displays all entries in the selected table (formatted so the role_id, and department_id are printed out rather than numbers)
 async function showTable(entry) {
@@ -48,7 +58,7 @@ async function showTable(entry) {
     }
     
     console.table(queryRes[0])
-    await inquirer.prompt(pause);
+    await pauseFunction();
 
     return;
 };
@@ -58,10 +68,10 @@ async function addData(entry) {
 
     console.log(`running addEntry ${entry}`)
     
-    let depts = await getChoices('department');
-    let roles = await getChoices('role');
-    let employees = await getChoices('employee');
-    let managers = await getChoices('manager');
+    // let depts = await getChoices('department');
+    // let roles = await getChoices('role');
+    // let employees = await getChoices('employee');
+    // let managers = await getChoices('manager');
     
 const deptAdd ={
     type: 'input',
@@ -85,7 +95,7 @@ const roleAdd = [
         type: 'list',
         name: 'dept',
         message: 'What department is this role in?',
-        choices: depts
+        choices: await getChoices('department')
     }
 ]
 
@@ -99,13 +109,13 @@ const employeeAdd = [
         type: 'list',
         name: 'role',
         message: 'What is their job title?',
-        choices: roles
+        choices: await getChoices('role')
     },
     {
         type: 'list',
         name: 'mgr',
         message: 'Who is their manager?',
-        choices: ['No one', ...managers]
+        choices: ['No one', ...await getChoices('manager')]
     },
     {
         type: 'confirm',
@@ -132,13 +142,12 @@ const employeeAdd = [
         case 'role':
 
             answers = await inquirer.prompt(roleAdd);
-            console.log(depts)
+            
             let dept_id = await getID('department', answers.dept);
 
             await db.promise().query(`INSERT INTO role (title, salary, dept_id) VALUES ('${answers.title}', '${answers.salary}', '${dept_id}')`)
 
             console.log(`${answers.title} was successfully added to the roles.`)
-    
 
             break;
 
@@ -163,25 +172,33 @@ const employeeAdd = [
                 isMgr = 0;
             }
 
-            // I had to break these two things out due to the formatting of inserting a null value in to sql
+            // This sets the manager ID to the ID of the new entry (if manager ID is null then the record isn't returned during the showTable funciton)
             if (answers.mgr == 'No one'){
-                mgr_id = null;
 
+                mgr_id = null;
+                
+                console.log('no manager')
                 await db.promise().query(`INSERT INTO employee (first_name, last_name, role_id, manager_id, is_manager) VALUES ('${firstName}', '${lastName}', '${role_id}', ${mgr_id}, '${isMgr}')`)
+
+                let newID = await getID('employee', fullName);
+
+                await db.promise().query(`UPDATE employee SET manager_id=${newID} WHERE id=${newID}`)
             }
 
             else {
-                mgr_id = await getID('employee', answers.mgr);
+
+                mgr_id = await getID('manager', answers.mgr);
 
                 await db.promise().query(`INSERT INTO employee (first_name, last_name, role_id, manager_id, is_manager) VALUES ('${firstName}', '${lastName}', '${role_id}', '${mgr_id}', '${isMgr}')`)
-            }
-
                 console.log(`${firstName} ${lastName} was successfully added to the employees.`)
+
+            }
 
             break;
         
     }
     
+    await pauseFunction();
     return;
 
 };
@@ -190,32 +207,41 @@ const employeeAdd = [
 
 
 // returns the id of a specific entry
-async function getID(table, search) {
+async function getID(entry, search) {
 
 
-    let column;
+    let table;
     let query;
     let id;
 
-    switch (table) {
+    switch (entry) {
         case 'department':
-            column = 'name';
-            query = search;
+            // column = 'name';
+            table = 'department'
+            query = `name='${search}'`;
             break;
         
         case 'role':
-            column = 'title';
-            query = search;
+            // column = 'title';
+            table = 'role'
+            query = `title='${search}'`;
             break;
 
         case 'employee':
+            table = 'employee'
+            let empName = search.split(' ')
+            query = `first_name='${empName[0]}' AND last_name='${empName[1]}'`
+
+        case 'manager':
+            table = 'employee'
             let mgrName = search.split(' ')
-            query = mgrName[1];
-            column = 'last_name';
+            query = `last_name='${mgrName[1]}'`;
+            // column = 'last_name';
             break;
+
     }
 
-    id = await db.promise().query(`SELECT id FROM ${table} WHERE ${column}='${query}'`)
+    id = await db.promise().query(`SELECT id FROM ${table} WHERE ${query}`)
 
     return id[0][0].id;
 
@@ -238,7 +264,9 @@ async function getChoices(table) {
             queryRes = await db.promise().query(`SELECT name FROM department`) 
     
                 for (let i = 0; i < queryRes[0].length; i++) {
-                   choiceArr.push(queryRes[0][i].name) 
+
+                   choiceArr.push(queryRes[0][i].name)
+
                 }
             break;
 
@@ -260,8 +288,10 @@ async function getChoices(table) {
             queryRes = await db.promise().query(`SELECT first_name AS First_Name, last_name AS Last_Name FROM employee`)
     
                 for (let i = 0; i < queryRes[0].length; i++) {
+
                     let fullName = `${queryRes[0][i].First_Name} ${queryRes[0][i].Last_Name}`
                     choiceArr.push(fullName);
+
                     }
 
             break;
@@ -271,8 +301,10 @@ async function getChoices(table) {
             queryRes = await db.promise().query(`SELECT first_name, last_name FROM employee WHERE is_manager=1`)
 
                 for (let i = 0; i < queryRes[0].length; i++) {
+
                     let fullName = `${queryRes[0][i].first_name} ${queryRes[0][i].last_name}`
                     choiceArr.push(fullName);
+
                     }
 
             break;
@@ -335,6 +367,7 @@ async function updateRole() {
 
 
     console.log(`${fName} ${lName}'s role was successfully updated`)
+    await pauseFunction();
     return;
 
 }
@@ -343,3 +376,8 @@ async function updateRole() {
 module.exports =  { showTable, addData, updateRole };
 
 // TODO: figure out how to join managers to the table. Currently if an employee doesn't have a manager they don't get logged to the table if I attempt a relationship to manager_id. Currently any employee who doesn't have a manager the id is set to themselves
+// add error handling and validtation 
+// add a README and maybe set up the .env
+// delete functionality
+// update all employee information
+// view dept budget
