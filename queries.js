@@ -53,6 +53,15 @@ async function showTable(entry) {
 
             queryRes = await db.promise().query('SELECT CONCAT(e.first_name, " ", e.last_name) AS Name, role.title AS Title, role.salary AS Salary, CONCAT(m.first_name, " ", m.last_name) AS Manager, department.name AS Department FROM employee e INNER JOIN role ON role_id=role.id INNER JOIN employee m ON e.manager_id=m.id INNER JOIN department ON role.dept_id=department.id')
     
+            // console.log(queryRes[0])
+
+            queryRes[0].forEach(element => {
+                
+                if (element.Name === element.Manager) {
+                    element.Manager = 'N/A';
+                }
+
+            });
     
             break;
     }
@@ -67,11 +76,6 @@ async function showTable(entry) {
 async function addData(entry) {
 
     console.log(`running addEntry ${entry}`)
-    
-    // let depts = await getChoices('department');
-    // let roles = await getChoices('role');
-    // let employees = await getChoices('employee');
-    // let managers = await getChoices('manager');
     
 const deptAdd ={
     type: 'input',
@@ -285,12 +289,16 @@ async function getChoices(table) {
 
 
         case 'employee': 
-            queryRes = await db.promise().query(`SELECT first_name AS First_Name, last_name AS Last_Name FROM employee`)
+            queryRes = await db.promise().query(`SELECT CONCAT(first_name, ' ', last_name) AS Name FROM employee`)
+
+            console.log(queryRes[0].Name)
     
                 for (let i = 0; i < queryRes[0].length; i++) {
 
-                    let fullName = `${queryRes[0][i].First_Name} ${queryRes[0][i].Last_Name}`
-                    choiceArr.push(fullName);
+
+
+                    // let fullName = `${queryRes[0][i].Name}`
+                    choiceArr.push(`${queryRes[0][i].Name}`);
 
                     }
 
@@ -298,12 +306,15 @@ async function getChoices(table) {
 
 
         case 'manager': 
-            queryRes = await db.promise().query(`SELECT first_name, last_name FROM employee WHERE is_manager=1`)
+            queryRes = await db.promise().query(`SELECT CONCAT(first_name, ' ', last_name) AS Manager FROM employee WHERE is_manager=1`)
+
+
+
 
                 for (let i = 0; i < queryRes[0].length; i++) {
 
-                    let fullName = `${queryRes[0][i].first_name} ${queryRes[0][i].last_name}`
-                    choiceArr.push(fullName);
+                    // let fullName = `${queryRes[0][i].first_name} ${queryRes[0][i].last_name}`
+                    choiceArr.push(`${queryRes[0][i].Manager}`)
 
                     }
 
@@ -315,7 +326,7 @@ async function getChoices(table) {
 
 
 // used to update the role of a chosen employee
-async function updateRole() {
+async function updateEmpData() {
 
     let name;
 
@@ -348,36 +359,95 @@ async function updateRole() {
         name = searchList.choice;
     };
 
+
+    // gets the ID of the selected employee
+    let id = await getID('employee', name);
+
     let nameArr = name.split(' ')
     let fName = nameArr[0];
     let lName = nameArr[1];
 
 
-    let newRole = await inquirer.prompt({
+    let mgrOrRole = await inquirer.prompt({
         type: 'list',
-        name: 'role',
-        message: 'Please choose a new role',
-        choices: [...await getChoices('role')]
+        name: 'entry',
+        message: 'What would you like to update?',
+        choices: ['Name', 'Role', 'Manager']
     })
 
 
-    let roleID = await getID('role', newRole.role)
+    switch (mgrOrRole.entry) {
 
-    await db.promise().query(`UPDATE employee SET role_id=${roleID} WHERE first_name='${fName}' AND last_name='${lName}'`);
+        case 'Name':
+
+            let newName = await inquirer.prompt({
+                type: 'input',
+                name: 'name',
+                message: 'Please enter a new name: '
+            })
 
 
-    console.log(`${fName} ${lName}'s role was successfully updated`)
+            newName = newName.name;
+            let nameArr = newName.split(' ')
+            let newFirst = nameArr[0];
+            let newLast = nameArr[1];
+
+            await db.promise().query(`UPDATE employee SET first_name='${newFirst}', last_name='${newLast}' WHERE id='${id}'`)
+
+            console.log(`${newName} has been successfully updated`)
+
+            break;
+
+        case 'Role':
+
+            let newRole = await inquirer.prompt({
+                type: 'list',
+                name: 'role',
+                message: 'Please choose a new role',
+                choices: [...await getChoices('role')]
+            })
+        
+            let roleID = await getID('role', newRole.role)
+        
+            await db.promise().query(`UPDATE employee SET role_id=${roleID} WHERE id='${id}'`);
+        
+            console.log(`${name}'s role was successfully updated`)
+
+            break;
+
+        case 'Manager':
+
+            let newMgr = await inquirer.prompt({
+                type: 'list',
+                name: 'manager',
+                message: 'Please choose a new manager: ',
+                choices: [...await getChoices('manager')]
+            })
+
+            newMgr = newMgr.manager;
+
+            // gets the ID of the selected manager
+            let mgrID = await getID('employee', newMgr);
+
+            await db.promise().query(`UPDATE employee set manager_id='${mgrID}' WHERE id='${id}'`)
+
+            console.log(`${name}'s manager was successfully updated.`)
+
+            break;
+
+    }
+
     await pauseFunction();
     return;
 
 }
 
 
-module.exports =  { showTable, addData, updateRole };
+module.exports =  { showTable, addData, updateEmpData };
 
-// TODO: figure out how to join managers to the table. Currently if an employee doesn't have a manager they don't get logged to the table if I attempt a relationship to manager_id. Currently any employee who doesn't have a manager the id is set to themselves
-// add error handling and validtation 
-// add a README and maybe set up the .env
+// TODO:
+// add error handling and validation (specifically with queries that find 0 results) 
+// set up
 // delete functionality
-// update all employee information
 // view dept budget
+// refactor to have the 'choose a department/role/employee' prompt to be it's own function

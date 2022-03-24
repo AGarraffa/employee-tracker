@@ -9,7 +9,7 @@ INSERT INTO role (title, salary, dept_id)
 VALUES  ("Plumber", 75000.00, 1),
         ("Princess", 500000.00, 1),
         ("Toadstool", 50000.00, 1),
-        ("Pary Leader", 200000.00, 2),
+        ("Party Leader", 200000.00, 2),
         ("Fighter", 90000.00, 2),
         ("Wizard", 100000.00, 2),
         ("Thief", 65000.00, 2),

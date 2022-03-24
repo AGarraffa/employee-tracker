@@ -1,6 +1,6 @@
 const inquirer = require('inquirer');
 // const mysql = require('mysql2');
-const { showTable, addData, updateRole } = require('./queries');
+const { showTable, addData, updateEmpData } = require('./queries');
 
 
 // connection to mysql and the company_db database
@@ -26,7 +26,7 @@ const mainMenu = {
             'Add a department', 
             'Add a role', 
             'Add an employee', 
-            'Update employee role',
+            'Update employee data',
             'Quit'
         ]
 };
@@ -39,9 +39,6 @@ const mainMenu = {
 
 
 async function init() {
-    
-    console.log('running init')
-
 
     let answer = await inquirer.prompt(mainMenu);
 
@@ -49,7 +46,7 @@ async function init() {
 
         case 'View all departments':
             await showTable('department');
-            // await inquirer.prompt(pause)
+   
             break;
         
         case 'View all roles':
@@ -72,8 +69,8 @@ async function init() {
             await addData('employee');
             break;
 
-        case 'Update employee role':
-            await updateRole();
+        case 'Update employee data':
+            await updateEmpData();
             break;
 
         case 'Quit':
@@ -81,26 +78,8 @@ async function init() {
             process.exit();
     }
 
-    // await inquirer.prompt(pause);
     await init();
 
 };
 
-// async function addData(input) {};
-// async function updateEntry() {};
-// possibly combine show and add and update;
-
 init();
-
-
-
-// sets the join so that onlay certain fields are displayed from each table
-// db.query('SELECT employee.first_name AS First, employee.last_name AS Last, role.title, role.salary, department.name AS department FROM employee INNER JOIN role ON employee.role_id=role.id INNER JOIN department ON role.dept_id=department.id', function (err, results){
-//     console.table(results);
-// })
-
-
-
-
-
-// find a solution to press-any-key (it's currently removed )
